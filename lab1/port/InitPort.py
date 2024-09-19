@@ -48,34 +48,29 @@ class InitPort:
     def write(self, data: bytes):
         if self.is_open():
             self.serial_connection.write(data)
+            print(f"{data}")
             self.serial_connection.flush()
         else:
             print("Порт не открыт для записи.")
 
-    def write_loop(self):
+    async def write_loop(self, data):
         if not self.is_open():
             print("Порт не открыт.")
-            return
+            return False
 
-        print("Начало записи данных.")
         try:
-            while True:
-                data = input()
-                self.write(data.encode("utf-8"))
-                if data:
-                    print(f"отправленно данных: {data}")
-                print("введите данные или 'q' для выхода: ")
-                if data == 'q':
-                    break
-                time.sleep(1)
-        except KeyboardInterrupt:
-            print("Прервано пользователем.")
-        finally:
-            self.close()
+            self.write(data.encode("utf-8"))
+            print(f"Отправлено данных: {data}")
+            return True
+        except Exception as e:
+            print(f"Ошибка при отправке данных: {e}")
+            return False
 
     def read(self, size: int = 1) -> bytes:
         if self.is_open():
-            return self.serial_connection.read(size)
+           data= self.serial_connection.read(size)
+           print(f"{data}: read")
+           return data
         else:
             print("Порт не открыт для чтения.")
             return b''
