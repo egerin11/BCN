@@ -1,21 +1,26 @@
 from PyQt5.QtWidgets import (
-   QWidget, QLabel, QPushButton, QVBoxLayout,
+    QWidget, QLabel, QPushButton, QVBoxLayout,
     QHBoxLayout, QListWidget, QMessageBox, QComboBox, QLineEdit
 )
 
 from GUI.ReadThread import ReadThread
+from packet.Packet import Packet
 from port import CheckPort
 from port.PortManager import PortManager
+
 
 class SerialGUI(QWidget):
     used_ports = []
 
     def __init__(self, window_id):
         super().__init__()
+        self.data = None
+        self.pair1 = None
+        self.pair2 = None
+        self.send_ports = None
         self.window_id = window_id
         self.setWindowTitle(f"Serial Port Manager - Window {window_id}")
         self.port_manager = PortManager()
-        # self.rw_file = RWFile()  # Uncomment if using RWFile
         self.read_threads = []
         self.port_pairs = []
         self.send_ports = []
@@ -39,9 +44,9 @@ class SerialGUI(QWidget):
         self.received_byte_data.setFixedSize(300, 50)
         self.baud_rate_label = QLabel("Скорость передачи:")
         self.send_baud_rate_combo = QComboBox()
-        self.baud_rates = [300, 600, 1200, 2400, 4800, 9600, 14400, 19200, 38400, 57600, 115200, 128000, 256000]
+        self.baud_rates = [300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200]
         self.send_baud_rate_combo.addItems(map(str, self.baud_rates))
-        self.receive_baud_rate_combo=QComboBox()
+        self.receive_baud_rate_combo = QComboBox()
         self.receive_baud_rate_combo.addItems(map(str, self.baud_rates))
 
         layout.addWidget(self.baud_rate_label)
@@ -84,7 +89,6 @@ class SerialGUI(QWidget):
         self.send_baud_rate_combo.currentIndexChanged.connect(self.update_baud_rate)
         self.receive_baud_rate_combo.currentIndexChanged.connect(self.update_baud_rate)
 
-
         layout.addWidget(self.send_data_label)
         layout.addWidget(self.send_data_input)
         layout.addWidget(self.send_button)
@@ -92,7 +96,6 @@ class SerialGUI(QWidget):
         self.setLayout(layout)
 
     def initialize_ports(self):
-
         check_ports = CheckPort.Port.find_pts_ports()
         ports = CheckPort.Port.check_ports(check_ports)
 
@@ -100,12 +103,11 @@ class SerialGUI(QWidget):
             QMessageBox.critical(self, "Ошибка", "Недостаточно доступных портов.")
             return
 
-        pair1 = (ports[0], ports[1])
-        pair2 = (ports[2], ports[3])
-        print(pair1)
-        self.port_pairs = [pair1, pair2]
-        self.send_ports = [pair1[0], pair2[0]]
-        self.receive_ports = [pair2[1], pair1[1]]
+        self.pair1 = (ports[0], ports[1])
+        self.pair2 = (ports[2], ports[3])
+        self.port_pairs = [self.pair1, self.pair2]
+        self.send_ports = [self.pair1[0], self.pair2[0]]
+        self.receive_ports = [self.pair2[1], self.pair1[1]]
         SerialGUI.used_ports.extend([
             self.send_ports[self.window_id - 1],
             self.receive_ports[self.window_id - 1]
@@ -113,6 +115,31 @@ class SerialGUI(QWidget):
 
         self.send_port_combo.addItem(self.send_ports[self.window_id - 1])
         self.receive_port_combo.addItem(self.receive_ports[self.window_id - 1])
+
+    def update_baud_rate(self):
+        sender = self.sender()
+        selected_baud_rate = self.baud_rates[sender.currentIndex()]
+
+        if sender == self.send_baud_rate_combo:
+            ports_to_update = self.pair1 if self.window_id == 1 else self.pair2
+        elif sender == self.receive_baud_rate_combo:
+            ports_to_update = self.pair2 if self.window_id == 1 else self.pair1
+        else:
+            return
+
+        try:
+            for port_name in ports_to_update:
+                self.port_manager.update_port_config(port_name, baudrate=selected_baud_rate)
+
+            if sender == self.send_baud_rate_combo:
+                self.receive_baud_rate_combo.setCurrentIndex(sender.currentIndex())
+            else:
+                self.send_baud_rate_combo.setCurrentIndex(sender.currentIndex())
+
+            QMessageBox.information(self, "Успех",
+                                    f"Скорость передачи портов {ports_to_update[0]} и {ports_to_update[1]} обновлена на {selected_baud_rate} бит/с")
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось обновить скорость передачи: {e}")
 
     def start_communication(self):
         send_port_name = self.send_port_combo.currentText()
@@ -153,8 +180,18 @@ class SerialGUI(QWidget):
     def display_received_data(self, data, byte_count):
         self.received_data_display.addItem(data)
 
-    def display_received_byte_data(self, data, byte_count):
-        self.received_byte_data.addItem(f"{byte_count} байт получено")
+    def display_received_byte_data(self,data):
+        if data.isdigit():
+            send_data=int(data)
+        else:
+            send_data=data
+        packet = Packet(18, self.send_ports[self.window_id - 1], send_data)
+        stuf_data = packet.get_packet_with_stuffing()
+
+        added_zeros = stuf_data.count('[0]')
+        display_string = f"Добавлено {added_zeros} нулей при битстаффинге: {stuf_data}"
+
+        self.received_byte_data.addItem(display_string)
 
     def stop_communication(self):
         for thread in self.read_threads:
@@ -167,48 +204,30 @@ class SerialGUI(QWidget):
 
         QMessageBox.information(self, "Успех", "Коммуникация остановлена.")
 
-    def update_baud_rate(self):
-        sender = self.sender()
-
-        if sender == self.send_baud_rate_combo:
-            selected_baud_rate = self.baud_rates[self.send_baud_rate_combo.currentIndex()]
-            port_name = self.send_port_combo.currentText()
-            if not port_name:
-                QMessageBox.warning(self, "Ошибка", "Пожалуйста, выберите порт для отправки.")
-                return
-            try:
-                self.port_manager.update_port_config(port_name, baudrate=selected_baud_rate)
-                QMessageBox.information(self, "Успех",
-                                        f"Скорость передачи порта {port_name} обновлена на {selected_baud_rate} бит/с")
-            except Exception as e:
-                QMessageBox.critical(self, "Ошибка", f"Не удалось обновить скорость передачи: {e}")
-
-        elif sender == self.receive_baud_rate_combo:
-            selected_baud_rate = self.baud_rates[self.receive_baud_rate_combo.currentIndex()]
-            port_name = self.receive_port_combo.currentText()
-            if not port_name:
-                QMessageBox.warning(self, "Ошибка", "Пожалуйста, выберите порт для приема.")
-                return
-            try:
-                self.port_manager.update_port_config(port_name, baudrate=selected_baud_rate)
-                QMessageBox.information(self, "Успех",
-                                        f"Скорость передачи порта {port_name} обновлена на {selected_baud_rate} бит/с")
-            except Exception as e:
-                QMessageBox.critical(self, "Ошибка", f"Не удалось обновить скорость передачи: {e}")
-
     def send_data(self):
         send_port_name = self.send_port_combo.currentText()
         data = self.send_data_input.text()
+
+        MAX_DATA_SIZE = 18
+
         if not send_port_name:
             QMessageBox.warning(self, "Ошибка", "Пожалуйста, выберите порт для отправки.")
             return
+
         if not data:
             QMessageBox.warning(self, "Ошибка", "Пожалуйста, введите данные для отправки.")
             return
+
         try:
             send_port = self.port_manager.get_port_descriptor(send_port_name, type=True)
-            send_port.write(data.encode('utf-8'))
-            QMessageBox.information(self, "Успех", f"Отправлено: {data}")
+
+            while data:
+                chunk = data[:MAX_DATA_SIZE]
+                send_port.write(chunk.encode('utf-8'))
+                QMessageBox.information(self, "Успех", f"Отправлено: {chunk}")
+
+                data = data[MAX_DATA_SIZE:]
+
             self.send_data_input.clear()
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось отправить данные: {e}")

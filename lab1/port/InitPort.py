@@ -1,6 +1,5 @@
 import serial
 import asyncio
-import time
 
 
 class InitPort:
@@ -48,7 +47,7 @@ class InitPort:
     def write(self, data: bytes):
         if self.is_open():
             self.serial_connection.write(data)
-            print(f"{data}")
+            print(f"Written data: {data}")
             self.serial_connection.flush()
         else:
             print("Порт не открыт для записи.")
@@ -68,9 +67,9 @@ class InitPort:
 
     def read(self, size: int = 1) -> bytes:
         if self.is_open():
-           data= self.serial_connection.read(size)
-           print(f"{data}: read")
-           return data
+            data = self.serial_connection.read(size)
+            print(f"Read data: {data}")
+            return data
         else:
             print("Порт не открыт для чтения.")
             return b''

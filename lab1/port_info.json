@@ -1,1 +1,52 @@
-{"/dev/pts/2": {"baudrate": 1200, "bytesize": 8, "parity": "N", "stopbits": 1, "timeout": 1, "xonxoff": false, "rtscts": false, "type": true}, "/dev/pts/3": {"baudrate": 300, "bytesize": 8, "parity": "N", "stopbits": 1, "timeout": 1, "xonxoff": false, "rtscts": false, "type": false}, "/dev/pts/4": {"baudrate": 300, "bytesize": 8, "parity": "N", "stopbits": 1, "timeout": 1, "xonxoff": false, "rtscts": false, "type": false}, "/dev/pts/5": {"baudrate": 1200, "bytesize": 8, "parity": "N", "stopbits": 1, "timeout": 1, "xonxoff": false, "rtscts": false, "type": true}}
+{
+  "/dev/pts/2": {
+    "baudrate": 9600,
+    "bytesize": 8,
+    "parity": "N",
+    "stopbits": 1,
+    "timeout": 1,
+    "xonxoff": false,
+    "rtscts": false,
+    "type": true
+  },
+  "/dev/pts/3": {
+    "baudrate": 57600,
+    "bytesize": 8,
+    "parity": "N",
+    "stopbits": 1,
+    "timeout": 1,
+    "xonxoff": false,
+    "rtscts": false,
+    "type": false
+  },
+  "/dev/pts/4": {
+    "baudrate": 57600,
+    "bytesize": 8,
+    "parity": "N",
+    "stopbits": 1,
+    "timeout": 1,
+    "xonxoff": false,
+    "rtscts": false,
+    "type": false
+  },
+  "/dev/pts/5": {
+    "baudrate": 57600,
+    "bytesize": 8,
+    "parity": "N",
+    "stopbits": 1,
+    "timeout": 1,
+    "xonxoff": false,
+    "rtscts": false,
+    "type": true
+  },
+  "/dev/pts/1": {
+    "baudrate": 9600,
+    "bytesize": 8,
+    "parity": "N",
+    "stopbits": 1,
+    "timeout": 1,
+    "xonxoff": false,
+    "rtscts": false,
+    "type": false
+  }
+}

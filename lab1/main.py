@@ -1,12 +1,12 @@
-
 from GUI.SerialGUI import SerialGUI
 import sys
 from PyQt5.QtWidgets import  QApplication
 
-
+from packet.Packet import Packet
 
 
 def main():
+
     app = QApplication(sys.argv)
 
     gui1 = SerialGUI(window_id=1)
@@ -20,3 +20,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
