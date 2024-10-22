@@ -9,6 +9,10 @@ from port import CheckPort
 from port.PortManager import PortManager
 
 
+class TwoErrorsDetectedException(Exception):
+    pass
+
+
 class SerialGUI(QWidget):
     used_ports = []
 
@@ -180,18 +184,28 @@ class SerialGUI(QWidget):
     def display_received_data(self, data, byte_count):
         self.received_data_display.addItem(data)
 
-    def display_received_byte_data(self,data):
+    def display_received_byte_data(self, data):
         if data.isdigit():
-            send_data=int(data)
+            send_data = int(data)
         else:
-            send_data=data
+            send_data = data
+
         packet = Packet(18, self.send_ports[self.window_id - 1], send_data)
         stuf_data = packet.get_packet_with_stuffing()
+        bit_data = packet.to_bits(data)
+        hem_data = packet.calculate_hamming_code(bit_data)
+        error_data = packet.introduce_random_errors(hem_data)
 
-        added_zeros = stuf_data.count('[0]')
-        display_string = f"Добавлено {added_zeros} нулей при битстаффинге: {stuf_data}"
+        try:
+            decode_data = packet.hamming_decode(error_data)
+            added_zeros = stuf_data.count('[0]')
+            display_string = f"Добавлено {added_zeros} нулей при битстаффинге: {stuf_data}"
+            ham_data = f"{decode_data}"
+            self.received_byte_data.addItem(display_string)
+            self.received_byte_data.addItem(ham_data)
 
-        self.received_byte_data.addItem(display_string)
+        except TwoErrorsDetectedException as e:
+            self.received_byte_data.addItem(str(e))
 
     def stop_communication(self):
         for thread in self.read_threads:
@@ -225,7 +239,6 @@ class SerialGUI(QWidget):
                 chunk = data[:MAX_DATA_SIZE]
                 send_port.write(chunk.encode('utf-8'))
                 QMessageBox.information(self, "Успех", f"Отправлено: {chunk}")
-
                 data = data[MAX_DATA_SIZE:]
 
             self.send_data_input.clear()
