@@ -1,9 +1,12 @@
+import time
+
 from PyQt5.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout,
     QHBoxLayout, QListWidget, QMessageBox, QComboBox, QLineEdit
 )
 
 from GUI.ReadThread import ReadThread
+from channel.ChannelSimulator import ChannelSimulator
 from packet.Packet import Packet
 from port import CheckPort
 from port.PortManager import PortManager
@@ -218,6 +221,32 @@ class SerialGUI(QWidget):
 
         QMessageBox.information(self, "Успех", "Коммуникация остановлена.")
 
+    def send_packet(self,recieve_packet, channel_simulator, collision_window=2):
+        max_attempts = 16
+        reciev_packet = ''
+        for byte in recieve_packet:
+            attempt = 0
+            while attempt < max_attempts:
+                if not channel_simulator.listen_channel():
+                    print(f"Канал занят. Ожидание передачи байта '{byte}'...")
+                    time.sleep(2)
+                    continue
+
+                print(f"Передача байта '{byte}'...")
+
+                if channel_simulator.detect_collision():
+                    print(f"Коллизия при передаче байта '{byte}'. Повторная попытка...")
+                    attempt += 1
+                    channel_simulator.exponential_backoff_delay(attempt)
+                    print(f"Ожидание окончания окна коллизии в {collision_window} секунд...")
+                    time.sleep(collision_window)
+                    continue
+
+                print(f"Байт '{byte}' успешно передан.")
+                reciev_packet += byte
+                break
+        return reciev_packet
+
     def send_data(self):
         send_port_name = self.send_port_combo.currentText()
         data = self.send_data_input.text()
@@ -234,12 +263,14 @@ class SerialGUI(QWidget):
 
         try:
             send_port = self.port_manager.get_port_descriptor(send_port_name, type=True)
+            channel_simulator = ChannelSimulator()
 
-            while data:
-                chunk = data[:MAX_DATA_SIZE]
+            new_data = self.send_packet(data, channel_simulator)
+            while new_data:
+                chunk = new_data[:MAX_DATA_SIZE]
                 send_port.write(chunk.encode('utf-8'))
                 QMessageBox.information(self, "Успех", f"Отправлено: {chunk}")
-                data = data[MAX_DATA_SIZE:]
+                new_data = new_data[MAX_DATA_SIZE:]
 
             self.send_data_input.clear()
         except Exception as e:
